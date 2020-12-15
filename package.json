@@ -1,10 +1,29 @@
 {
+  "name": "idea-cli",
+  "version": "0.0.1",
+  "description": "A simple CLI for idea vue template.",
+  "preferGlobal": true,
   "bin": {
     "idea": "bin/idea",
     "idea-init": "bin/idea-init",
     "idea-list": "bin/idea-list"
   },
-  "bundleDependencies": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhangminqiang/idea-cli.git"
+  },
+  "keywords": [
+    "idea",
+    "cli"
+  ],
+  "author": "mq zhang",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/zhangminqiang/idea-cli/issues"
+  },
+  "homepage": "https://github.com/zhangminqiang/idea-cli.git#readme",
+  "scripts": {
+  },
   "dependencies": {
     "async": "^2.4.0",
     "chalk": "^2.1.0",
@@ -27,8 +46,6 @@
     "user-home": "^2.0.0",
     "validate-npm-package-name": "^3.0.0"
   },
-  "deprecated": false,
-  "description": "A simple CLI for idea vue template.",
   "devDependencies": {
     "chai": "^4.1.2",
     "eslint": "^3.19.0",
@@ -38,22 +55,5 @@
   },
   "engines": {
     "node": ">=6.0.0"
-  },
-  "keywords": [
-    "idea",
-    "cli"
-  ],
-  "license": "MIT",
-  "name": "idea-cli",
-  "preferGlobal": true,
-  "publishConfig": {
-    "registry": "http://172.56.10.62:4873"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+http://zhangmq@rmis.ideasoft.net.cn:8090/scm/~zhangmq/idea-cli.git"
-  },
-  "scripts": {
-  },
-  "version": "0.0.1"
+  }
 }
