@@ -1,0 +1,169 @@
+#!/usr/bin/env node
+
+const download = require('download-git-repo')
+const program = require('commander')
+const exists = require('fs').existsSync
+const path = require('path')
+const ora = require('ora')
+const home = require('user-home')
+const tildify = require('tildify')
+const chalk = require('chalk')
+const inquirer = require('inquirer')
+const rimraf = require('rimraf')
+const logger = require('../lib/logger')
+const generate = require('../lib/generate')
+const checkVersion = require('../lib/check-version')
+const localPath = require('../lib/local-path')
+const configUtils = require('../lib/template-config')
+
+const isLocalPath = localPath.isLocalPath
+const getTemplatePath = localPath.getTemplatePath
+
+/**
+ * Description：
+ * idea init '模板名称' '项目名称' --branch=分支或者版本
+ * 需要考虑两个项目的初始化，文件覆盖问题
+ */
+
+/**
+ * Usage.
+ */
+
+program
+  .usage('<template-name> [project-name]')
+  .option('--offline', 'use cached template')
+  .option('-b, --branch [name]', 'use template branch')
+
+/**
+ * Help.
+ */
+
+program.on('--help', () => {
+  console.log('  Examples:')
+  console.log()
+  console.log(chalk.gray('    # first, you must add template short name and git url'))
+  console.log('    $ idea template portal http://xxxxxx.git')
+  console.log()
+  console.log(chalk.gray('    # then, create a new project with an template'))
+  console.log('    $ idea init portal my-project')
+  console.log()
+  console.log(chalk.gray('    # create a new project with an template branch'))
+  console.log('    $ idea init portal my-project -b develop')
+  console.log()
+  console.log()
+})
+
+/**
+ * Help.
+ */
+
+function help () {
+  program.parse(process.argv)
+  if (program.args.length < 1) return program.help()
+}
+help()
+
+/**
+ * Settings.
+ */
+
+let template = program.args[0]
+const rawName = program.args[1]
+const inPlace = !rawName || rawName === '.'
+const name = inPlace ? path.relative('../', process.cwd()) : rawName
+const to = path.resolve(rawName || '.')
+
+const tmp = path.join(home, '.idea-templates', template.replace(/\//g, '-'))
+if (program.offline) {
+  console.log(`> 使用缓存模板： ${chalk.yellow(tildify(tmp))}`)
+  template = tmp
+}
+
+const config = configUtils.getTemplateConfig(program.args[0])
+console.log(config)
+if (!config) {
+  logger.fatal('未找到"%s"模板。', template)
+  return
+}
+
+/**
+ * Padding.
+ */
+
+console.log()
+process.on('exit', () => {
+  console.log()
+})
+
+if (exists(to)) {
+  inquirer.prompt([{
+    type: 'confirm',
+    message: inPlace
+      ? `当前目录是：${to}，确认初始化吗?`
+      : `已存在目录：${to}, 确认覆盖初始化吗?`,
+    name: 'ok'
+  }]).then(answers => {
+    if (answers.ok) {
+      run()
+    }
+  }).catch(logger.fatal)
+} else {
+  run()
+}
+
+/**
+ * Check, download and generate the project.
+ */
+
+function run () {
+
+  // check if template is local
+  if (isLocalPath(template)) {
+    const templatePath = getTemplatePath(template)
+    if (exists(templatePath)) {
+      generate(name, templatePath, to, program, config, err => {
+        if (err) logger.fatal(err)
+        console.log()
+        logger.success('初始化"%s"模板成功。', name)
+      })
+    } else {
+      logger.fatal('缓存模板"%s"未找到。', template)
+    }
+  } else {
+
+
+    downloadAndGenerate(`direct:${config.repository.url}${program.branch ? `#${program.branch}` : ''}`)
+  }
+}
+
+/**
+ * Download a generate from a template repo.
+ *
+ * @param {String} template
+ */
+
+function downloadAndGenerate (template) {
+  if (exists(tmp)) {
+    rimraf(tmp, function () {
+      downloadTemplate(template)
+    })
+  } else {
+    downloadTemplate(template)
+  }
+}
+
+function downloadTemplate (template) {
+  const spinner = ora('开始下载模板')
+  spinner.start()
+  download(template, tmp, { clone: true }, err => {
+    spinner.stop()
+    if (err) logger.fatal('模板下载失败，模板git地址 ' + template + ': ' + err.message.trim())
+
+    generate(name, tmp, to, program, config, err => {
+      if (err) logger.fatal(err)
+      console.log()
+
+      logger.success('初始化"%s"模板成功。', name)
+    })
+  })
+}

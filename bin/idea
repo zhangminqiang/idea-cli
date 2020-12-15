@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+
+require('commander')
+  .version(require('../package').version)
+  .usage('<command> [options]')
+  .command('template', '添加模板信息，包含模块地址，发布目标地址')
+  .command('init', '初始化平台模板')
+  .command('update', '更新平台模板')
+  .command('push', '推送到指定应用')
+  .parse(process.argv)

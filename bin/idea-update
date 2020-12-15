@@ -1,0 +1,173 @@
+#!/usr/bin/env node
+
+const download = require('download-git-repo')
+const program = require('commander')
+const fs = require('fs')
+const path = require('path')
+const ora = require('ora')
+const home = require('user-home')
+const tildify = require('tildify')
+const chalk = require('chalk')
+const inquirer = require('inquirer')
+const rimraf = require('rimraf')
+const logger = require('../lib/logger')
+const generate = require('../lib/update-generate')
+const checkVersion = require('../lib/check-version')
+const localPath = require('../lib/local-path')
+
+const exists = fs.existsSync
+const isLocalPath = localPath.isLocalPath
+const getTemplatePath = localPath.getTemplatePath
+
+/**
+ * Description：
+ * idea update '模板名称' --branch=分支或者版本
+ * 需要考虑两个项目的初始化，文件覆盖问题
+ * 1. 执行命令的目录寻找idea.config.json；
+ * 2. 找到模板地址
+ * 3. 克隆下载到本地
+ * 4. 过滤替换
+ */
+
+/**
+ * Usage.
+ */
+
+program
+  .usage('<template-name>')
+  .option('-b, --branch [name]', 'use template branch')
+  .option('--offline', 'use cached template')
+
+/**
+ * Help.
+ */
+
+program.on('--help', () => {
+  console.log('  Examples:')
+  console.log()
+  console.log(chalk.gray('    # first, create a new project with an template'))
+  console.log('    $ idea init portal my-project')
+  console.log()
+  console.log(chalk.gray('    # then, update project template with an template branch'))
+  console.log('    $ idea update portal --branch develop')
+  console.log()
+  console.log()
+})
+
+/**
+ * Help.
+ */
+
+function help () {
+  program.parse(process.argv)
+  if (program.args.length < 1) return program.help()
+}
+help()
+
+/**
+ * Settings.
+ */
+
+const ideaConfigPath = path.join(process.cwd(), 'idea.config.json')
+
+if (!exists(ideaConfigPath)) {
+  logger.fatal(`未找到${ideaConfigPath}文件`)
+  return
+}
+
+const ideaConfig = JSON.parse(fs.readFileSync(ideaConfigPath));
+let template = program.args[0]
+const currentConfig = ideaConfig[template]
+
+if (!currentConfig) {
+  logger.fatal(`idea.config.json文件未找到${template}模板配置`, template)
+  return
+}
+
+if (!currentConfig['repository'] || !currentConfig['repository']['url']) {
+  logger.fatal(`idea.config.json文件未找到${template}模板地址`, template)
+  return
+}
+
+const name = path.relative('../', process.cwd())
+const to = path.resolve('.')
+
+const tmp = path.join(home, '.idea-templates', template.replace(/\//g, '-'))
+if (program.offline) {
+  console.log(`> Use cached template at ${chalk.yellow(tildify(tmp))}`)
+  template = tmp
+}
+
+/**
+ * Padding.
+ */
+
+console.log()
+process.on('exit', () => {
+  console.log()
+})
+
+inquirer.prompt([{
+  type: 'confirm',
+  message: `确定在当前目录：${process.cwd()}更新模板吗？请确认是否存在未提交内容，防止修改被覆盖。`,
+  name: 'ok'
+}]).then(answers => {
+  if (answers.ok) {
+    run()
+  }
+}).catch(logger.fatal)
+
+
+/**
+ * Check, download and generate the project.
+ */
+
+function run () {
+  // check if template is local
+  if (isLocalPath(template)) {
+    const templatePath = getTemplatePath(template)
+    if (exists(templatePath)) {
+      generate(name, currentConfig, tmp, to, program, err => {
+        if (err) logger.fatal(err)
+        console.log()
+        logger.success('更新成功 "%s".', program.args[0])
+      })
+    } else {
+      logger.fatal('本地模板未找到 "%s"', template)
+    }
+  } else {
+    downloadAndGenerate(`direct:${ideaConfig[template]['repository']['url']}${program.branch ? `#${program.branch}` : ''}`)
+  }
+}
+
+/**
+ * Download a generate from a template repo.
+ *
+ * @param {String} template
+ */
+
+function downloadAndGenerate (template) {
+  if (exists(tmp)) {
+    rimraf(tmp, function () {
+      downloadTemplate(template)
+    })
+  } else {
+    downloadTemplate(template)
+  }
+}
+
+function downloadTemplate (template) {
+  const spinner = ora('downloading template')
+  spinner.start()
+  download(template, tmp, { clone: true }, err => {
+    spinner.stop()
+    if (err) logger.fatal('Failed to download repo ' + template + ': ' + err.message.trim())
+
+    generate(name, currentConfig, tmp, to, program, err => {
+      if (err) logger.fatal(err)
+      console.log()
+
+      logger.success('更新成功 "%s".', program.args[0])
+    })
+  })
+}

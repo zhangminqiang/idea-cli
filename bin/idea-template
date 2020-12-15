@@ -1,0 +1,105 @@
+#!/usr/bin/env node
+const program = require('commander')
+const chalk = require('chalk')
+const configUtils = require('../lib/template-config')
+/**
+ * Description：
+ * idea template portal 'git地址'
+ * idea template portal 'git地址' --destination name --destination-url 'git地址'
+ */
+program
+  .usage('[template-name] [template-url]')
+  .option('-d, --destination [type]', '添加模板库需要推送的目标仓库简称')
+  .option('-u, --destination-url [url]', '添加推送目标仓库url地址')
+  .option('-r, --remove', '移除配置表示')
+  .option('-l, --list', '查看模板配置信息')
+  .option('--directory [directory]', '定义模板所在git仓库下的目录，默认是.', '.')
+
+program.on('--help', () => {
+  console.log('  Examples:')
+  console.log()
+  console.log(chalk.gray('    # 查看模板配置信息'))
+  console.log('    $ idea template --list')
+  console.log(chalk.gray('    # 查看某个模板配置信息'))
+  console.log('    $ idea template portal --l')
+  console.log('    $ idea template portal --list')
+  console.log()
+  console.log(chalk.gray('    # 添加/修改模块库简称及模块库地址'))
+  console.log('    $ idea template portal http://zhangmq@rmis.ideasoft.net.cn:8090/scm/~zhangmq/portal-template.git')
+  console.log(chalk.gray('    # 添加/修改模块库简称、模块库地址以及定义模板所在目录'))
+  console.log('    $ idea template portal http://zhangmq@rmis.ideasoft.net.cn:8090/scm/~zhangmq/portal-template.git --directory=web')
+  console.log(chalk.gray('    # 移除模板库地址配置'))
+  console.log('    $ idea template portal -r')
+  console.log('    $ idea template portal --remove')
+  console.log()
+  console.log(chalk.gray('    # 添加/修改模块库推送的目标仓库简称及仓库地址'))
+  console.log('    $ idea template portal -d ccm -u http://zhangmq@rmis.ideasoft.net.cn:8090/scm/eap4/ccm.git')
+  console.log('    $ idea template portal --destination=portal --destination-url=http://zhangmq@rmis.ideasoft.net.cn:8090/scm/eap4/portal.git')
+  console.log(chalk.gray('    # 移除模块库推送的目标仓库简称及仓库地址'))
+  console.log('    $ idea template portal -r -d ccm')
+  console.log('    $ idea template portal --remove --destination=portal')
+  console.log()
+})
+
+program.parse(process.argv)
+const options = program.opts()
+const isShowList = options.list
+const template = program.args[0]
+/**
+ * Help.
+ */
+
+function help () {
+  // 显示配置
+  if (isShowList) {
+    configUtils.showTemplate(template)
+    return
+  }
+
+  if (program.args.length < 1) {
+    console.log(program.args)
+    return program.help()
+  }
+}
+help()
+
+if (isShowList) {
+  return
+}
+
+const templateUrl = program.args[1]
+const isRemove = options.remove
+const destination = options.destination
+const destinationUrl = options.destinationUrl
+const directory = options.directory
+
+function run () {
+  // 移除配置
+  if (isRemove) {
+    if (template) {
+      if (destination) {
+        configUtils.removeTemplateDestination(template, destination)
+      } else {
+        configUtils.removeTemplate(template)
+      }
+
+      return
+    }
+    return program.help()
+  }
+
+  if (template && templateUrl && 
+    !destination && !destinationUrl) {
+      configUtils.setTemplate(template, templateUrl, directory)
+      return
+  }
+
+  if (template && destination && destinationUrl) {
+    configUtils.setTemplateDestination(template, templateUrl)
+    return
+  }
+
+  return program.help()
+}
+
+run()
